@@ -29,12 +29,27 @@
  *  @pgnum: page number
  *  @value: obtained value
  */
-int tlb_cache_read(struct memphy_struct * mp, int pid, int pgnum, BYTE value)
+int tlb_cache_read(struct memphy_struct * tlb, int pid, int pgnum, BYTE * value)
 {
    /* TODO: the identify info is mapped to 
     *      cache line by employing:
     *      direct mapped, associated mapping etc.
     */
+   if (tlb == NULL || value == NULL){
+      return -1;
+   }
+   uint32_t index = (uint32_t)pgnum % tlb->maxsz;
+   if(tlb->storage[index] == -1){
+      //* do not have that entry in tlb, fail to read
+      //* update the tlb entries outside this function
+      return -1;
+   }
+
+   // if(pid != tlb->pid_hold){
+   //    tlb_flush_tlb_of(proc, tlb);
+   //    return 0;
+   // }
+   *value = tlb->storage[index];
    return 0;
 }
 
@@ -45,12 +60,23 @@ int tlb_cache_read(struct memphy_struct * mp, int pid, int pgnum, BYTE value)
  *  @pgnum: page number
  *  @value: obtained value
  */
-int tlb_cache_write(struct memphy_struct *mp, int pid, int pgnum, BYTE value)
+int tlb_cache_write(struct memphy_struct *tlb, int pid, int pgnum, BYTE value)
 {
    /* TODO: the identify info is mapped to 
     *      cache line by employing:
     *      direct mapped, associated mapping etc.
     */
+      if (tlb == NULL) {
+        return -1;  // Return error if the input pointer is invalid
+    }
+   // if(pid != tlb->pid_hold){
+   //    tlb_flush_tlb_of(proc, tlb);
+   //    //* update pid hold
+   //    tlb->pid_hold = pid;
+   //    return 0;
+   // }
+   uint32_t index = (uint32_t)pgnum % tlb->maxsz;
+   tlb->storage[index] = value;  // Store the value in the cache
    return 0;
 }
 
@@ -100,7 +126,9 @@ int TLBMEMPHY_dump(struct memphy_struct * mp)
    /*TODO dump memphy contnt mp->storage 
     *     for tracing the memory content
     */
-
+   for (int i = 0; i < mp->maxsz; i++) {
+        printf("TLB Entry %d: %d\n", i, mp->storage[i]);
+   }
    return 0;
 }
 
@@ -112,6 +140,7 @@ int init_tlbmemphy(struct memphy_struct *mp, int max_size)
 {
    mp->storage = (BYTE *)malloc(max_size*sizeof(BYTE));
    mp->maxsz = max_size;
+   // mp->pid_hold = -1;
 
    mp->rdmflg = 1;
 
