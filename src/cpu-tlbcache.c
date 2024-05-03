@@ -23,11 +23,13 @@
 
 #define TLB_SIZE 1024
 
-struct framephy_struct * tlb[TLB_SIZE];
+struct framephy_struct *tlb[TLB_SIZE];
 #define init_tlbcache(mp,sz,...) init_memphy(mp, sz, (1, ##__VA_ARGS__))
 
 struct framephy_struct *hash_function(struct memphy_struct *mp, int pid, int pgnum) {
-   int index = (pid ^ pgnum) % TLB_SIZE; // XOR pid and pgnum and then modulo by TLB size
+   int index = (pid | pgnum) % TLB_SIZE; // XOR pid and pgnum and then modulo by TLB size
+   tlb[index] = malloc(sizeof(struct framephy_struct));
+   tlb[index]->fpn = pid;
    return tlb[index];
 }
 /*
@@ -43,15 +45,17 @@ int tlb_cache_read(struct memphy_struct * tlb, int pid, int pgnum, BYTE * value)
     *      cache line by employing:
     *      direct mapped, associated mapping etc.
    */
-   if (tlb == NULL || value == NULL){
+   if (tlb == NULL || tlb->storage[pgnum^pid] == -1){
       return -1;
    }
-   uint32_t index = (uint32_t)pgnum % tlb->maxsz;
-   if(tlb->storage[index] == -1){
-      //* do not have that entry in tlb, fail to read
-      //* update the tlb entries outside this function
-      return -1;
-   }
+   // struct vm_rg_struct *currg = get_symrg_byid(tlb, pgnum);
+   // if(currg ==NULL) return -1;
+   // uint32_t index = (uint32_t)pgnum % tlb->maxsz;
+   // if(tlb->storage[index] == -1){
+   //    //* do not have that entry in tlb, fail to read
+   //    //* update the tlb entries outside this function
+   //    return -1;
+   // }
 
    // if(pid != tlb->pid_hold){
    //    tlb_flush_tlb_of(proc, tlb);
@@ -69,7 +73,7 @@ int tlb_cache_read(struct memphy_struct * tlb, int pid, int pgnum, BYTE * value)
 //    // Use a hash function or direct mapping to find the frame
 //    struct framephy_struct *frame = hash_function(mp, pid, pgnum);
 //    // Check if the frame is valid and matches the pid and pgnum
-//    if (frame != NULL && frame->owner->pgd[pgnum] == pid) {
+//    if (frame != NULL && frame->fpn == pid) {
 //       // TLB hit, retrieve the value
 //       *value = mp->storage[frame->fpn];
 //       return 0; // Success
@@ -96,14 +100,16 @@ int tlb_cache_write(struct memphy_struct *tlb, int pid, int pgnum, BYTE value)
       if (tlb == NULL) {
         return -1;  // Return error if the input pointer is invalid
     }
+   tlb->storage[pgnum^pid] = value;
    // if(pid != tlb->pid_hold){
    //    tlb_flush_tlb_of(proc, tlb);
    //    //* update pid hold
    //    tlb->pid_hold = pid;
    //    return 0;
    // }
-   uint32_t index = (uint32_t)pgnum % tlb->maxsz;
-   tlb->storage[index] = value;  // Store the value in the cache
+   
+   // uint32_t index = (uint32_t)pgnum % tlb->maxsz;
+   // tlb->storage[index] = value;  // Store the value in the cache
    return 0;
 }
 // int tlb_cache_write(struct memphy_struct *mp, int pid, int pgnum, BYTE value) {
@@ -114,7 +120,7 @@ int tlb_cache_write(struct memphy_struct *tlb, int pid, int pgnum, BYTE value)
 //    // Use a hash function or direct mapping to find the frame
 //    struct framephy_struct *frame = hash_function(mp, pid, pgnum);
 //    // Check if the frame is valid and matches the pid and pgnum
-//    if (frame != NULL && frame->owner->pgd[pgnum] == pid) {
+//    if (frame != NULL && frame->fpn == pid) {
 //        // TLB hit, update the value
 //        mp->storage[frame->fpn] = value;
 //        return 0; // Success
@@ -185,7 +191,9 @@ int init_tlbmemphy(struct memphy_struct *mp, int max_size)
    mp->storage = (BYTE *)malloc(max_size*sizeof(BYTE));
    mp->maxsz = max_size;
    // mp->pid_hold = -1;
-
+   for(int i = 0; i < max_size; i++){
+      mp->storage[i] = -1;
+   }
    mp->rdmflg = 1;
 
    return 0;

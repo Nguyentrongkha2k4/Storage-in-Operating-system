@@ -28,7 +28,8 @@ int tlb_change_all_page_tables_of(struct pcb_t *proc,  struct memphy_struct * mp
 int tlb_flush_tlb_of(struct pcb_t *proc, struct memphy_struct * mp)
 {
   /* TODO flush tlb cached*/
-  
+  if(proc == NULL || mp ==NULL) return -1;
+  proc->tlb = mp;
   return 0;
 }
 
@@ -97,8 +98,7 @@ int tlbread(struct pcb_t * proc, uint32_t source,
   /* frmnum is return value of tlb_cache_read/write value*/
   
 	frmnum = tlb_cache_read(proc->tlb, proc->pid, source, &data);
-  int val = __read(proc, 0, source, offset, &data);
-
+  printf("hash: %d\n", source^proc->pid);
 #ifdef IODUMP
   if (frmnum >= 0)
     printf("TLB hit at read region=%d offset=%d\n", 
@@ -112,12 +112,13 @@ int tlbread(struct pcb_t * proc, uint32_t source,
   MEMPHY_dump(proc->mram);
 #endif
 
+  int val = __read(proc, 0, source, offset, &data);
 
   destination = (uint32_t) data;
 
   /* TODO update TLB CACHED with frame num of recent accessing page(s)*/
   /* by using tlb_cache_read()/tlb_cache_write()*/
-  if(frmnum >= 0){
+  if(frmnum < 0){
     if(tlb_cache_write(proc->tlb, proc->pid, source, destination) < 0){
       printf("Write in tlb is wrong.\n");
     }else{
@@ -143,6 +144,7 @@ int tlbwrite(struct pcb_t * proc, BYTE data,
   /* by using tlb_cache_read()/tlb_cache_write()
   frmnum is return value of tlb_cache_read/write value*/
   frmnum = tlb_cache_read(proc->tlb, proc->pid, destination, &data2);
+  printf("hash: %d\n", destination^proc->pid);
 #ifdef IODUMP
   if (frmnum >= 0)
     printf("TLB hit at write region=%d offset=%d value=%d\n",
@@ -156,7 +158,7 @@ int tlbwrite(struct pcb_t * proc, BYTE data,
   MEMPHY_dump(proc->mram);
 #endif
   val = __write(proc, 0, destination, offset, data);
-  if(frmnum >= 0){
+  if(frmnum < 0){
     if(tlb_cache_write(proc->tlb, proc->pid, destination, data) <= 0){
       printf("Write in tlb is wrong.\n");
     }else{
