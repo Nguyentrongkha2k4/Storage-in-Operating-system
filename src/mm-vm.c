@@ -238,8 +238,8 @@ int pg_getpage(struct mm_struct *mm, int pgn, int *fpn, struct pcb_t *caller)
     int tgtfpn = GETVAL(pte, 0x3fffffe0, 5);
     //get swap type (5 bit low)
     int tgtfpn_type = GETVAL(pte, 0x1f, 0);
-    //int tgtfpn = GETVAL(pte, PAGING_PTE_SWPOFF_MASK, PAGING_PTE_SWPOFF_LOBIT);//the target frame storing our variable
-    //int tgtfpn_type = GETVAL(pte, PAGING_PTE_SWPTYP_MASK, PAGING_PTE_SWPTYP_LOBIT);//the type of target frame
+    // int tgtfpn = GETVAL(pte, PAGING_PTE_SWPOFF_MASK, PAGING_PTE_SWPOFF_LOBIT);//the target frame storing our variable
+    // int tgtfpn_type = GETVAL(pte, PAGING_PTE_SWPTYP_MASK, PAGING_PTE_SWPTYP_LOBIT);//the type of target frame
     printf("pte=%d tgtfpn=%d tgtfpn_type=%d\n", pte, tgtfpn, tgtfpn_type);//todel
     
     /* TODO: Play with your paging theory here */

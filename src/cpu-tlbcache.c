@@ -19,9 +19,21 @@
 
 #include "mm.h"
 #include <stdlib.h>
+#define TLB_SIZE 1024
 
+struct framephy_struct * tlb[TLB_SIZE];
 #define init_tlbcache(mp,sz,...) init_memphy(mp, sz, (1, ##__VA_ARGS__))
 
+struct framephy_struct *hash_function(struct memphy_struct *mp, int pid, int pgnum) {
+   int index = (pid ^ pgnum) % TLB_SIZE; // XOR pid and pgnum and then modulo by TLB size
+   return tlb[index];
+}
+struct framephy_struct *tlb[TLB_SIZE]; 
+
+struct framephy_struct *hash_function(struct memphy_struct *mp, int pid, int pgnum) {
+   int index = (pid ^ pgnum) % TLB_SIZE; // XOR pid and pgnum and then modulo by TLB size
+   return tlb[index];
+}
 /*
  *  tlb_cache_read read TLB cache device
  *  @mp: memphy struct
@@ -29,30 +41,49 @@
  *  @pgnum: page number
  *  @value: obtained value
  */
-int tlb_cache_read(struct memphy_struct * tlb, int pid, int pgnum, BYTE * value)
-{
-   /* TODO: the identify info is mapped to 
+// int tlb_cache_read(struct memphy_struct * tlb, int pid, int pgnum, BYTE * value)
+// {
+//    /* TODO: the identify info is mapped to 
+//     *      cache line by employing:
+//     *      direct mapped, associated mapping etc.
+//    */
+//    if (tlb == NULL || value == NULL){
+//       return -1;
+//    }
+//    uint32_t index = (uint32_t)pgnum % tlb->maxsz;
+//    if(tlb->storage[index] == -1){
+//       //* do not have that entry in tlb, fail to read
+//       //* update the tlb entries outside this function
+//       return -1;
+//    }
+
+//    // if(pid != tlb->pid_hold){
+//    //    tlb_flush_tlb_of(proc, tlb);
+//    //    return 0;
+//    // }
+
+//    *value = tlb->storage[index];
+//    return 0;
+// }
+int tlb_cache_read(struct memphy_struct *mp, int pid, int pgnum, BYTE *value) {
+   /* TODO: the identify info is mapped to
     *      cache line by employing:
     *      direct mapped, associated mapping etc.
     */
-   if (tlb == NULL || value == NULL){
-      return -1;
+   // Use a hash function or direct mapping to find the frame
+   struct framephy_struct *frame = hash_function(mp, pid, pgnum);
+   // Check if the frame is valid and matches the pid and pgnum
+   if (frame != NULL && frame->owner->pgd[pgnum] == pid) {
+      // TLB hit, retrieve the value
+      *value = mp->storage[frame->fpn];
+      return 0; // Success
    }
-   uint32_t index = (uint32_t)pgnum % tlb->maxsz;
-   if(tlb->storage[index] == -1){
-      //* do not have that entry in tlb, fail to read
-      //* update the tlb entries outside this function
-      return -1;
+   else {
+      // TLB miss, handle accordingly
+      // ...
+      return -1; // Indicate TLB miss
    }
-
-   // if(pid != tlb->pid_hold){
-   //    tlb_flush_tlb_of(proc, tlb);
-   //    return 0;
-   // }
-   *value = tlb->storage[index];
-   return 0;
 }
-
 /*
  *  tlb_cache_write write TLB cache device
  *  @mp: memphy struct
@@ -60,26 +91,43 @@ int tlb_cache_read(struct memphy_struct * tlb, int pid, int pgnum, BYTE * value)
  *  @pgnum: page number
  *  @value: obtained value
  */
-int tlb_cache_write(struct memphy_struct *tlb, int pid, int pgnum, BYTE value)
-{
-   /* TODO: the identify info is mapped to 
+// int tlb_cache_write(struct memphy_struct *tlb, int pid, int pgnum, BYTE value)
+// {
+//    /* TODO: the identify info is mapped to 
+//     *      cache line by employing:
+//     *      direct mapped, associated mapping etc.
+//     */
+//       if (tlb == NULL) {
+//         return -1;  // Return error if the input pointer is invalid
+//     }
+//    // if(pid != tlb->pid_hold){
+//    //    tlb_flush_tlb_of(proc, tlb);
+//    //    //* update pid hold
+//    //    tlb->pid_hold = pid;
+//    //    return 0;
+//    // }
+//    uint32_t index = (uint32_t)pgnum % tlb->maxsz;
+//    tlb->storage[index] = value;  // Store the value in the cache
+//    return 0;
+// }
+int tlb_cache_write(struct memphy_struct *mp, int pid, int pgnum, BYTE value) {
+   /* TODO: the identify info is mapped to
     *      cache line by employing:
     *      direct mapped, associated mapping etc.
     */
-      if (tlb == NULL) {
-        return -1;  // Return error if the input pointer is invalid
-    }
-   // if(pid != tlb->pid_hold){
-   //    tlb_flush_tlb_of(proc, tlb);
-   //    //* update pid hold
-   //    tlb->pid_hold = pid;
-   //    return 0;
-   // }
-   uint32_t index = (uint32_t)pgnum % tlb->maxsz;
-   tlb->storage[index] = value;  // Store the value in the cache
-   return 0;
+   // Use a hash function or direct mapping to find the frame
+   struct framephy_struct *frame = hash_function(mp, pid, pgnum);
+   // Check if the frame is valid and matches the pid and pgnum
+   if (frame != NULL && frame->owner->pgd[pgnum] == pid) {
+       // TLB hit, update the value
+       mp->storage[frame->fpn] = value;
+       return 0; // Success
+   } else {
+       // TLB miss, handle accordingly
+       // ...
+       return -1; // Indicate TLB miss
+   }
 }
-
 /*
  *  TLBMEMPHY_read natively supports MEMPHY device interfaces
  *  @mp: memphy struct
