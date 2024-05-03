@@ -28,7 +28,7 @@ int tlb_change_all_page_tables_of(struct pcb_t *proc,  struct memphy_struct * mp
 int tlb_flush_tlb_of(struct pcb_t *proc, struct memphy_struct * mp)
 {
   /* TODO flush tlb cached*/
-
+  
   return 0;
 }
 
@@ -42,6 +42,11 @@ int tlballoc(struct pcb_t *proc, uint32_t size, uint32_t reg_index)
   int addr, val;
 
   /* By default using vmaid = 0 */
+  if(tlb_cache_write(proc->tlb, proc->pid, reg_index, NULL)){
+    printf("Alloc in tlb is success.\n");
+  }else{
+    printf("Alloc in tlb is wrong.\n");
+  }
   val = __alloc(proc, 0, reg_index, size, &addr);
 
   /* TODO update TLB CACHED frame num of the new allocated page(s)*/
@@ -57,12 +62,22 @@ int tlballoc(struct pcb_t *proc, uint32_t size, uint32_t reg_index)
  */
 int tlbfree_data(struct pcb_t *proc, uint32_t reg_index)
 {
-  __free(proc, 0, reg_index);
-
+  int data;
+  if(tlb_cache_read(proc->tlb,proc->pid, reg_index,  &data) < 0){
+    printf("No exit pagenum in tlb cache.\n");
+  }else{
+    printf("Exit page num in tlb cache.\n");
+    if(tlb_cache_write(proc->tlb, proc->pid, reg_index, NULL) < 0){
+      print("Free in tlb cache is wrong.\n");
+    }else{
+      printf("Free in tlb cache is success.\n");
+    }
+  }
+  
   /* TODO update TLB CACHED frame num of freed page(s)*/
   /* by using tlb_cache_read()/tlb_cache_write()*/
 
-  return 0;
+  return __free(proc, 0, reg_index);
 }
 
 
@@ -80,7 +95,9 @@ int tlbread(struct pcb_t * proc, uint32_t source,
   /* TODO retrieve TLB CACHED frame num of accessing page(s)*/
   /* by using tlb_cache_read()/tlb_cache_write()*/
   /* frmnum is return value of tlb_cache_read/write value*/
-	
+  
+	frmnum = tlb_cache_read(proc->tlb, proc->pid, source, &data);
+
 #ifdef IODUMP
   if (frmnum >= 0)
     printf("TLB hit at read region=%d offset=%d\n", 
@@ -100,7 +117,13 @@ int tlbread(struct pcb_t * proc, uint32_t source,
 
   /* TODO update TLB CACHED with frame num of recent accessing page(s)*/
   /* by using tlb_cache_read()/tlb_cache_write()*/
-
+  if(frmnum >= 0){
+    if(tlb_cache_write(proc->tlb, proc->pid, source, destination) < 0){
+      printf("Write in tlb is wrong.\n");
+    }else{
+      printf("Write in tlb is success.\n");
+    }
+  }
   return val;
 }
 
@@ -114,11 +137,12 @@ int tlbwrite(struct pcb_t * proc, BYTE data,
              uint32_t destination, uint32_t offset)
 {
   int val;
-  BYTE frmnum = -1;
+  BYTE data, frmnum = -1;
 
   /* TODO retrieve TLB CACHED frame num of accessing page(s))*/
   /* by using tlb_cache_read()/tlb_cache_write()
   frmnum is return value of tlb_cache_read/write value*/
+  frmnum = tlb_cache_read(proc->tlb, proc->pid, destination, &data);
 
 #ifdef IODUMP
   if (frmnum >= 0)
@@ -137,7 +161,13 @@ int tlbwrite(struct pcb_t * proc, BYTE data,
 
   /* TODO update TLB CACHED with frame num of recent accessing page(s)*/
   /* by using tlb_cache_read()/tlb_cache_write()*/
-
+  if(frmnum >= 0){
+    if(tlb_cache_write(proc->tlb, proc->pid, destination, data) <= 0){
+      printf("Write in tlb is wrong.\n");
+    }else{
+      printf("Write in tlb is success.\n");
+    }
+  }
   return val;
 }
 
