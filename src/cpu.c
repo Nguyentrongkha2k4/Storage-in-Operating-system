@@ -50,17 +50,16 @@ int run(struct pcb_t * proc) {
 	if (proc->pc >= proc->code->size) {
 		return 1;
 	}
-	
+
+
 	struct inst_t ins = proc->code->text[proc->pc];
 	proc->pc++;
 	int stat = 1;
 	switch (ins.opcode) {
 	case CALC:
-printf("CALC\n");
 		stat = calc(proc);
 		break;
 	case ALLOC:
-printf("ALLOC %d %d\n", ins.arg_0, ins.arg_1);
 #ifdef CPU_TLB 
 		stat = tlballoc(proc, ins.arg_0, ins.arg_1);
 #elif defined(MM_PAGING)
@@ -70,7 +69,6 @@ printf("ALLOC %d %d\n", ins.arg_0, ins.arg_1);
 #endif
 		break;
 	case FREE:
-printf("FREE %d\n", ins.arg_0);
 #ifdef CPU_TLB
 		stat = tlbfree_data(proc, ins.arg_0);
 #elif defined(MM_PAGING)
@@ -80,7 +78,6 @@ printf("FREE %d\n", ins.arg_0);
 #endif
 		break;
 	case READ:
-printf("READ %d %d %d\n", ins.arg_0, ins.arg_1, ins.arg_2);
 #ifdef CPU_TLB
 		stat = tlbread(proc, ins.arg_0, ins.arg_1, ins.arg_2);
 #elif defined(MM_PAGING)
@@ -90,7 +87,6 @@ printf("READ %d %d %d\n", ins.arg_0, ins.arg_1, ins.arg_2);
 #endif
 		break;
 	case WRITE:
-printf("WRITE %d %d %d\n", ins.arg_0, ins.arg_1, ins.arg_2);
 #ifdef CPU_TLB
 		stat = tlbwrite(proc, ins.arg_0, ins.arg_1, ins.arg_2);
 #elif defined(MM_PAGING)

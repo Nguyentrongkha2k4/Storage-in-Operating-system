@@ -169,6 +169,7 @@ int TLBMEMPHY_dump(struct memphy_struct * mp)
     *     for tracing the memory content
     */
    for (int i = 0; i < mp->maxsz; i++) {
+      if(mp->storage[i] != -1)
         printf("TLB Entry %d: %d\n", i, mp->storage[i]);
    }
    return 0;
