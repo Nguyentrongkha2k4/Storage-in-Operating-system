@@ -21,17 +21,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#define TLB_SIZE 1024
-
-struct framephy_struct *tlb[TLB_SIZE];
 #define init_tlbcache(mp,sz,...) init_memphy(mp, sz, (1, ##__VA_ARGS__))
 
-struct framephy_struct *hash_function(struct memphy_struct *mp, int pid, int pgnum) {
-   int index = (pid | pgnum) % TLB_SIZE; // XOR pid and pgnum and then modulo by TLB size
-   tlb[index] = malloc(sizeof(struct framephy_struct));
-   tlb[index]->fpn = pid;
-   return tlb[index];
-}
+
 /*
  *  tlb_cache_read read TLB cache device
  *  @mp: memphy struct

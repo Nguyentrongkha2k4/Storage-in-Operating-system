@@ -95,7 +95,6 @@ int __alloc(struct pcb_t *caller, int vmaid, int rgid, int size, int *alloc_addr
 
   if (get_free_vmrg_area(caller, vmaid, size, &rgnode) == 0)
   {
-  printf("chek\n");  
     caller->mm->symrgtbl[rgid].rg_start = rgnode.rg_start;
     caller->mm->symrgtbl[rgid].rg_end = rgnode.rg_end;
 

@@ -65,9 +65,7 @@ int tlbfree_data(struct pcb_t *proc, uint32_t reg_index)
 {
   BYTE data;
   if(tlb_cache_read(proc->tlb,proc->pid, reg_index,  &data) < 0){
-    printf("No exit pagenum in tlb cache.\n");
   }else{
-    printf("Exit page num in tlb cache.\n");
     if(tlb_cache_write(proc->tlb, proc->pid, reg_index, data) < 0){
       printf("Free in tlb cache is wrong.\n");
     }else{
@@ -98,7 +96,6 @@ int tlbread(struct pcb_t * proc, uint32_t source,
   /* frmnum is return value of tlb_cache_read/write value*/
   
 	frmnum = tlb_cache_read(proc->tlb, proc->pid, source, &data);
-  printf("hash: %d\n", source^proc->pid);
 #ifdef IODUMP
   if (frmnum >= 0)
     printf("TLB hit at read region=%d offset=%d\n", 
@@ -120,9 +117,6 @@ int tlbread(struct pcb_t * proc, uint32_t source,
   /* by using tlb_cache_read()/tlb_cache_write()*/
   if(frmnum < 0){
     if(tlb_cache_write(proc->tlb, proc->pid, source, destination) < 0){
-      printf("Write in tlb is wrong.\n");
-    }else{
-      printf("Write in tlb is success.\n");
     }
   }
   return val;
@@ -144,7 +138,6 @@ int tlbwrite(struct pcb_t * proc, BYTE data,
   /* by using tlb_cache_read()/tlb_cache_write()
   frmnum is return value of tlb_cache_read/write value*/
   frmnum = tlb_cache_read(proc->tlb, proc->pid, destination, &data2);
-  printf("hash: %d\n", destination^proc->pid);
 #ifdef IODUMP
   if (frmnum >= 0)
     printf("TLB hit at write region=%d offset=%d value=%d\n",
@@ -160,9 +153,6 @@ int tlbwrite(struct pcb_t * proc, BYTE data,
   val = __write(proc, 0, destination, offset, data);
   if(frmnum < 0){
     if(tlb_cache_write(proc->tlb, proc->pid, destination, data) <= 0){
-      printf("Write in tlb is wrong.\n");
-    }else{
-      printf("Write in tlb is success.\n");
     }
   }
 
