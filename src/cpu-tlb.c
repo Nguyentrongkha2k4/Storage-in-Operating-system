@@ -68,7 +68,7 @@ int tlbfree_data(struct pcb_t *proc, uint32_t reg_index)
   BYTE data;
   if(tlb_cache_read(proc->tlb,proc->pid, reg_index,  &data) < 0){
   }else{
-    if(tlb_cache_write(proc->tlb, proc->pid, reg_index, data) < 0){
+    if(tlb_cache_write(proc->tlb, proc->pid, reg_index, -1) < 0){
       printf("Free in tlb cache is wrong.\n");
     }else{
       printf("Free in tlb cache is success.\n");
