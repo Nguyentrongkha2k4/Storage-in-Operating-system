@@ -14,12 +14,17 @@ int empty(struct queue_t *q)
 void enqueue(struct queue_t *q, struct pcb_t *proc)
 {
         /* TODO: put a new process to queue [q] */
-        int sizeOFqueue = q->size;
-        if(sizeOFqueue<MAX_QUEUE_SIZE && sizeOFqueue>=0)
-        {
-                q->proc[sizeOFqueue]=proc;
-                q->size = sizeOFqueue+1;
-        }
+        // int sizeOFqueue = q->size;
+        // if(sizeOFqueue<MAX_QUEUE_SIZE && sizeOFqueue>=0)
+        // {
+        //         q->proc[sizeOFqueue]=proc;
+        //         q->size = sizeOFqueue+1;
+        // }
+        if(!q || !proc) return;
+        if(q->size >= MAX_QUEUE_SIZE) return;
+        q->proc[q->size] = proc;
+        q->size++;
+        return;
 }
 
 
