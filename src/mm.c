@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+struct pgn_t* global_fifo = NULL;
+
 /* 
  * init_pte - Initialize PTE entry
  */
@@ -99,19 +101,26 @@ int vmap_page_range(struct pcb_t *caller, // process call
    *      [addr to addr + pgnum*PAGING_PAGESZ
    *      in page table caller->mm->pgd[]
    */
-  for(pgit = 0;  pgit < pgnum; pgit++){
-    int pgn_off = addr + pgit*PAGING_PAGESZ;
-    pgn = PAGING_PGN(pgn_off);
-    if(fpit){
+
+ /*
+* dựa vào PAGING_PGN(x) để lấy thứ tự trong page table -> pagetable[i] =fpit->pgn | Một số thông tin khác
+  * usernumber thì k biết ghi gì
+  *  một số khác thì tùy chỉnh
+  
+  */
+  for(pgit = 0; pgit < pgnum; pgit++) {
+    fpit = fpit->fp_next;
+    pgn = PAGING_PGN((addr + pgit*PAGING_PAGESZ));  // index of this page in process's page table
+    if(fpit) {
       pte_set_fpn(&(caller->mm->pgd[pgn]), fpit->fpn);
-      enlist_pgn_node(&caller->mm->fifo_pgn, pgn);
+
+    /* Tracking for later page replacement activities (if needed)
+      * Enqueue new usage page */
+    enlist_pgn_node(&caller->mm->fifo_pgn, pgn); //pgn+pgit
     }
   }
-   /* Tracking for later page replacement activities (if needed)
-    * Enqueue new usage page */
-   //enlist_pgn_node(&caller->mm->fifo_pgn, pgn+pgit);
+  ret_rg->rg_end += (pgit-1) * PAGING_PAGESZ;
 
-  ret_rg ->rg_end += (pgit-1)*PAGING_PAGESZ;
   return 0;
 }
 
@@ -126,61 +135,81 @@ int alloc_pages_range(struct pcb_t *caller, int req_pgnum, struct framephy_struc
 {
   int pgit, fpn;
   struct framephy_struct *newfp_str;
-  //TODO
+
   for(pgit = 0; pgit < req_pgnum; pgit++)
   {
     if(MEMPHY_get_freefp(caller->mram, &fpn) == 0)
    {
-     newfp_str = (struct framephy_struct*)malloc(sizeof(struct framephy_struct));
-     newfp_str->fpn = fpn;
-     newfp_str->owner =caller->mm;
-     if(!*frm_lst){
-      *frm_lst = newfp_str;
-     }
-     else{
-      newfp_str->fp_next = *frm_lst;
-      *frm_lst = newfp_str;
-     }
-     newfp_str->fp_next = caller->mram->used_fp_list;
-     caller->mram->used_fp_list = newfp_str;
+   	newfp_str = (struct framephy_struct*) malloc(sizeof(struct framephy_struct));
+   	newfp_str->fpn = fpn;
+   	newfp_str->owner = caller->mm;
+   	if(!*frm_lst)
+   		*frm_lst = newfp_str;
+   	else {
+   		newfp_str->fp_next = *frm_lst;
+   		*frm_lst = newfp_str;
+   	}
+   	newfp_str->fp_next = caller->mram->used_fp_list;
+   	caller->mram->used_fp_list =newfp_str;
+     
    } else {  // ERROR CODE of obtaining somes but not enough frames
-    int vicfpn, vicpgn, vicpte;
-    int swpfpn = -1;
-    if(find_victim_page(caller->mm, &vicpgn)< 0){
-      return -1;
-    }
-    vicpte  = caller->mm->pgd[vicpgn];
-    vicfpn = PAGING_FPN(vicpte);
-    int i = 0;
-    if(MEMPHY_get_freefp(caller->active_mswp, &swpfpn) == 0){
-      __swap_cp_page(caller->mram, vicfpn, caller->active_mswp, swpfpn);
-      struct memphy_struct* mswp = (struct memphy_struct*)caller->mswp;
-      for(i = 0; i < PAGING_MAX_MMSWP; i++){
-        if(mswp + i == caller->active_mswp){
-          break;
-        }
-      }
-    }
-    else{
-      struct memphy_struct* mswp =(struct memphy_struct*)caller->mswp;
-      for(i = 0; i < PAGING_MAX_MMSWP; i++){
-        if(MEMPHY_get_freefp(mswp +1, &swpfpn) == 0){
-         __swap_cp_page(caller->mram, vicfpn, mswp + i, swpfpn);
-         break;
-        }
-      }
-    }
-    if(swpfpn == -1) return -3000; //out of memory error
-    pte_set_swap(&caller->mm->pgd[vicpgn], i, swpfpn);
-   } 
+   	int victim_fpn, victim_pgn, victim_pte;
+   	int swpfpn = -1;
+   	if(find_victim_page(caller->mm, &victim_pgn) < 0 )
+   		return -1;
+   	victim_pte = caller->mm->pgd[victim_pgn];
+   	victim_fpn = PAGING_FPN(victim_pte);
+   	//*****************
+   	newfp_str = (struct framephy_struct*) malloc(sizeof(struct framephy_struct));
+   	newfp_str->fpn = victim_fpn;
+   	newfp_str->owner = caller->mm;
+   	
+   	if(!*frm_lst)
+   		*frm_lst = newfp_str;
+   	else {
+   		newfp_str->fp_next = *frm_lst;
+   		*frm_lst = newfp_str;
+   	}
+   	
+   	//******
+   	int i = 0;
+   	if(MEMPHY_get_freefp(caller->active_mswp, &swpfpn) == 0)
+   	{
+   		__swap_cp_page(caller->mram, victim_fpn, caller->active_mswp, swpfpn); // copy content on victim rame to swap memory space
+   		struct memphy_struct* mswp = (struct memphy_struct*)caller->mswp;
+   		for(i = 0; i < PAGING_MAX_MMSWP; i++) 
+   		{
+   			if(mswp + i == caller->active_mswp)
+   				break;
+   		}
+   	}
+   	else
+   	{
+   		struct memphy_struct* mswp = (struct memphy_struct*) caller->mswp;
+   		swpfpn = -1;
+   		for(i = 0; i < PAGING_MAX_MMSWP; i++)
+   		{
+   			if(MEMPHY_get_freefp(mswp + i, &swpfpn) == 0)
+   			{
+   				__swap_cp_page(caller->mram, victim_fpn, mswp + i, swpfpn); //copy content on victim frame to swap memory space
+   				break;
+   			}
+   		}
+   	} 
+   	if(swpfpn == -1)
+   		return -3000;
+   	pte_set_swap(&caller->mm->pgd[victim_pgn], i, swpfpn);
+   	
+   }
+   
  }
 
   return 0;
 }
 
 
-/* 
- * vm_map_ram - do the mapping all vm are to ram storage device
+/*
+* vm_map_ram - do the mapping all vm are to ram storage device
  * @caller    : caller
  * @astart    : vm area start
  * @aend      : vm area end
@@ -286,7 +315,7 @@ struct vm_rg_struct* init_vm_rg(int rg_start, int rg_end)
 int enlist_vm_rg_node(struct vm_rg_struct **rglist, struct vm_rg_struct* rgnode)
 {
   rgnode->rg_next = *rglist;
-  *rglist = rgnode;
+*rglist = rgnode;
 
   return 0;
 }
